@@ -39,7 +39,7 @@
     </script>
 <style>
         html {
-            scroll-behavior: smooth;
+            scroll-behavior: auto;
         }
         body {
             background-image: linear-gradient(rgba(19, 91, 236, 0.08), rgba(19, 91, 236, 0.08)), url("https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2000&q=70");
@@ -47,6 +47,8 @@
             background-size: cover;
             background-position: center;
         }
+        /* Ensure in-page anchor jumps account for fixed header */
+        section[id] { scroll-margin-top: 80px; }
         .dark body {
             background-image: linear-gradient(rgba(16, 22, 34, 0.6), rgba(16, 22, 34, 0.6)), url("https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2000&q=70");
         }
@@ -60,7 +62,7 @@
 </head>
 <body class="font-display bg-white dark:bg-background-dark text-[#111827] dark:text-gray-300">
 <div class="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden">
-<header class="sticky top-0 z-50 flex items-center justify-center whitespace-nowrap bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm border-b border-solid border-gray-200/80 dark:border-gray-800/80 px-4 sm:px-10 py-3" id="home">
+<header class="fixed top-0 inset-x-0 z-50 flex items-center justify-center whitespace-nowrap bg-white/80 dark:bg-background-dark/80 backdrop-blur-sm border-b border-solid border-gray-200/80 dark:border-gray-800/80 px-4 sm:px-10 py-3">
 <div class="flex items-center justify-between w-full max-w-6xl">
 <a class="flex items-center gap-3 text-primary dark:text-white" href="#home">
 <div class="size-6">
@@ -70,17 +72,19 @@
 </div>
 <h2 class="text-xl font-bold leading-tight tracking-[-0.015em] text-[#111827] dark:text-white">LinguaBridge</h2>
 </a>
-<nav class="hidden md:flex items-center gap-8">
-<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#services">Our Expertise</a>
-<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#about">About LinguaBridge</a>
-<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#team">Meet Our Experts</a>
-<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#trusted">Trusted by teams worldwide</a>
-<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#contact">Get in Touch</a>
+<nav class="hidden md:flex items-center gap-8 relative pb-2">
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#home">Home</a>
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#services">Our expertise</a>
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#about">About us</a>
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#team">Our experts</a>
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#trusted">Trusted by</a>
+<a class="text-sm font-medium leading-normal text-[#111827] dark:text-gray-300 hover:text-primary dark:hover:text-primary" href="#contact">Contact</a>
+ <span id="nav-indicator" class="absolute bottom-0 h-[2px] bg-primary/60 dark:bg-primary/70 rounded transition-all duration-300" style="left:0;width:0;"></span>
  </nav>
 </div>
 </header>
-<main class="flex-grow">
-<section class="flex justify-center items-center h-[calc(100vh-64px)] min-h-[550px] px-4 sm:px-10 pb-12">
+<main class="flex-grow pt-16">
+<section class="flex justify-center items-center h-[calc(100vh-64px)] min-h-[550px] px-4 sm:px-10 pb-12" id="home">
 <div class="w-full max-w-6xl">
 <div class="@container">
  <div class="flex min-h-[440px] flex-col gap-6 bg-cover bg-center bg-no-repeat rounded-xl items-start justify-center text-left p-10 md:p-16" data-alt="Blue-toned globe background" style='background-image: radial-gradient(circle at 20% 40%, rgba(19, 91, 236, 0.25), transparent 60%), linear-gradient(to right, rgba(16, 22, 34, 0.6) 0%, rgba(16, 22, 34, 0.2) 100%), url("https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80");'>
@@ -335,6 +339,44 @@
     const links = Array.from(nav.querySelectorAll('a'));
     const sections = Array.from(document.querySelectorAll('section[id]'));
     let active = 'home';
+    const indicator = document.getElementById('nav-indicator');
+
+    function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2; }
+    let cancelScrollAnim = null;
+    function smoothScrollTo(targetY, duration, onDone){
+      if (duration <= 0){ window.scrollTo(0, targetY); return; }
+      const scrollEl = document.scrollingElement || document.documentElement;
+      const startY = scrollEl.scrollTop;
+      const delta = targetY - startY;
+      const startT = performance.now();
+      let rafId = 0;
+      if (typeof cancelScrollAnim === 'function') cancelScrollAnim();
+      cancelScrollAnim = () => { if (rafId) cancelAnimationFrame(rafId); cancelScrollAnim = null; };
+      // Temporarily disable native CSS smooth to avoid conflicts
+      const prevBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      function step(now){
+        const elapsed = now - startT;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = easeInOutCubic(t);
+        scrollEl.scrollTop = startY + delta * eased;
+        if (t < 1) { rafId = requestAnimationFrame(step); } else { cancelScrollAnim = null; document.documentElement.style.scrollBehavior = prevBehavior; if (typeof onDone === 'function') onDone(); }
+      }
+      rafId = requestAnimationFrame(step);
+    }
+
+    function updateIndicator(link){
+      if (!indicator || !link) return;
+      const navRect = nav.getBoundingClientRect();
+      const rect = link.getBoundingClientRect();
+      const left = rect.left - navRect.left;
+      indicator.style.left = left + 'px';
+      indicator.style.width = rect.width + 'px';
+    }
+    function updateIndicatorById(id){
+      const link = links.find(a => a.getAttribute('href') === `#${id}`);
+      updateIndicator(link);
+    }
 
     function setActive(id){
       if (active === id) return;
@@ -343,7 +385,9 @@
         const on = a.getAttribute('href') === `#${id}`;
         a.classList.toggle('text-primary', on);
         a.classList.toggle('font-bold', on);
+        
       });
+      updateIndicatorById(id);
       // Special-case Home
       if (id === 'home'){
         links.forEach(a => {
@@ -351,10 +395,12 @@
           a.classList.toggle('text-primary', on);
           a.classList.toggle('font-bold', on);
         });
+        updateIndicatorById('home');
       }
     }
 
     const observer = new IntersectionObserver((entries) => {
+      if (isProgrammaticScrolling) return;
       let topMost = null;
       for (const entry of entries){
         if (entry.isIntersecting){
@@ -366,14 +412,48 @@
       if (topMost){
         setActive(topMost.target.id);
       } else if (window.scrollY < 120){
-        setActive('services');
+        setActive('home');
       }
     }, { root: null, threshold: [0.6], rootMargin: '-10% 0px -30% 0px' });
 
     sections.forEach(sec => observer.observe(sec));
 
     // Initialize state on load
-    if (window.scrollY < 120) setActive('services');
+    if (window.scrollY < 120) setActive('home');
+    updateIndicatorById(active);
+    
+    // Smooth scroll on internal anchor clicks (capture phase) with fixed header offset
+    const headerEl = document.querySelector('header');
+    let isProgrammaticScrolling = false;
+    function handleAnchorClick(e){
+      const a = e.target.closest('a[href^="#"]');
+      if (!a) return;
+      const href = a.getAttribute('href');
+      if (!href || href.length < 2) return;
+      const target = document.querySelector(href);
+      if (!target) return;
+      e.preventDefault();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      const id = href.slice(1);
+      setActive(id);
+      const headerH = headerEl ? headerEl.offsetHeight : 0;
+      const scrollEl = document.scrollingElement || document.documentElement;
+      const currentY = scrollEl.scrollTop;
+      const targetY = target.getBoundingClientRect().top + currentY - headerH - 8;
+      const distance = Math.abs(targetY - currentY);
+      // Relatively stable duration regardless of distance using logarithmic scaling
+      const duration = Math.min(1100, Math.max(450, 500 + 250 * Math.log1p(distance / 700)));
+      isProgrammaticScrolling = true;
+      smoothScrollTo(targetY, duration, () => { isProgrammaticScrolling = false; });
+      if (history && history.replaceState) {
+        history.replaceState(null, '', href);
+      }
+    }
+    // Capture to beat native browser anchor behavior
+    document.addEventListener('click', handleAnchorClick, true);
+
+    // Recalculate indicator on resize
+    window.addEventListener('resize', () => updateIndicatorById(active));
   })();
 </script>
 </body></html>
